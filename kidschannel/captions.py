@@ -14,6 +14,7 @@ class TimedWord:
     text: str
     start: float  # segundos no vídeo final
     end: float
+    line_break: bool = False  # força nova legenda depois desta palavra (fim de verso)
 
 
 def ass_time(seconds: float) -> str:
@@ -37,7 +38,7 @@ def chunk_words(words: list[TimedWord], max_words: int) -> list[list[TimedWord]]
             chunks.append(current)
             current = []
         current.append(word)
-        if len(current) >= max_words or word.text.endswith((".", "!", "?", ",", ":", ";")):
+        if len(current) >= max_words or word.line_break or word.text.endswith((".", "!", "?", ",", ":", ";")):
             chunks.append(current)
             current = []
     if current:

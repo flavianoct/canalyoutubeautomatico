@@ -11,7 +11,7 @@ on:
         description: "Quantos Shorts gerar (vazio = padrão)"
         default: ""
       series:
-        description: "Série (opcional): curiosidades, adivinha, historinha, aprender, porque"
+        description: "Série (opcional): musica, danca, curiosidades, adivinha, historinha, aprender, porque"
         default: ""
       topic:
         description: "Tema (opcional)"

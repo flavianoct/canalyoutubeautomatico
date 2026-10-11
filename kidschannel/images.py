@@ -30,9 +30,10 @@ class ImageError(RuntimeError):
 
 def build_prompt(cfg: dict[str, Any], scene_prompt: str, show_mascot: bool) -> str:
     style = cfg.get("style", {})
-    parts = [style.get("image", "").strip(), scene_prompt.strip().rstrip(".")]
-    if show_mascot:
-        parts.append(cfg["channel"]["mascot"]["visual"].strip())
+    scene = scene_prompt.strip().rstrip(".")
+    if show_mascot:  # personagem primeiro, depois o que ele está fazendo
+        scene = f"{cfg['channel']['mascot']['visual'].strip()}, {scene}"
+    parts = [style.get("image", "").strip(), scene]
     if style.get("avoid"):
         parts.append(style["avoid"].strip())
     return ". ".join(p for p in parts if p)
@@ -211,11 +212,17 @@ class ImageGenerator:
         raise ImageError("Todos os provedores de imagem falharam: " + " | ".join(errors))
 
     def generate_scenes(self, scenes: list[Any], out_dir: Path, base_seed: int) -> list[Path]:
+        """Uma imagem por cena; cenas com a mesma descrição (ex.: refrão) reaproveitam a imagem."""
         out_dir.mkdir(parents=True, exist_ok=True)
-        jobs = []
+        jobs: dict[tuple[str, bool], tuple[str, Path, int, bool]] = {}
+        keys = []
         for i, scene in enumerate(scenes):
-            prompt = build_prompt(self.cfg, scene.image_prompt, scene.show_mascot)
-            jobs.append((prompt, out_dir / f"scene_{i:02d}.jpg", base_seed + i, scene.show_mascot))
+            key = (scene.image_prompt.strip(), bool(scene.show_mascot))
+            keys.append(key)
+            if key not in jobs:
+                prompt = build_prompt(self.cfg, scene.image_prompt, scene.show_mascot)
+                jobs[key] = (prompt, out_dir / f"scene_{len(jobs):02d}.jpg", base_seed + i, scene.show_mascot)
         workers = max(1, int(self.cfg["images"].get("max_workers", 2)))
         with ThreadPoolExecutor(max_workers=workers) as pool:
-            return list(pool.map(lambda job: self.generate_one(*job), jobs))
+            paths = dict(zip(jobs, pool.map(lambda job: self.generate_one(*job), jobs.values())))
+        return [paths[key] for key in keys]

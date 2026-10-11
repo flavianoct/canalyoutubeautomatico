@@ -1,5 +1,6 @@
 anthropic>=1.13
 edge-tts>=7.2
+elevenlabs>=2.71
 google-api-python-client>=2.150
 google-auth>=2.30
 google-auth-oauthlib>=1.2

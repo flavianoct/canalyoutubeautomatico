@@ -1,17 +1,30 @@
 # Canal infantil automático no YouTube
 
-Robô que cria e publica **YouTube Shorts infantis** sozinho, todos os dias:
+Robô que cria e publica **YouTube Shorts infantis** sozinho, todos os dias — com
+**músicas originais cantadas** e vídeos narrados, pensados para viralizar:
 
 ```
-tema novo ─► roteiro (Claude) ─► revisão de segurança infantil ─► ilustrações (IA)
-   ─► narração com voz neural ─► música original ─► legendas animadas ─► vídeo 9:16
-   ─► upload no YouTube ("feito para crianças") ─► playlist da série ─► histórico
+tema novo ─► letra ou roteiro (Claude) ─► revisão de segurança infantil ─► ilustrações (IA)
+   ─► música CANTADA (ElevenLabs Music) ou narração com voz neural
+   ─► legenda karaokê sincronizada ─► vídeo 9:16 ─► upload ("feito para crianças")
+   ─► playlist da série ─► histórico (nunca repete tema)
 ```
 
-O canal de exemplo é o **Mundo do Pipo**: a girafinha Pipo apresenta 5 séries
-(curiosidades de animais, adivinhas, historinhas com lição, aprender brincando e
-"por que será?"). Tudo isso — nome, mascote, séries, voz, horários — é editável no
+O canal de exemplo é o **Mundo do Pipo**: a girafinha Pipo apresenta 7 séries —
+duas cantadas (**Musiquinhas do Pipo** e **Dança do Pipo**) e cinco narradas
+(curiosidades de animais, adivinhas, historinhas, aprender brincando e "por que será?").
+Tudo isso — nome, mascote, séries, voz, estilo musical, horários — é editável no
 [`config.yaml`](config.yaml).
+
+### Como funcionam os Shorts cantados
+
+1. O Claude compõe uma **música original** (sem paródias) com refrão-chiclete logo no
+   primeiro segundo, onomatopeias, gestos para a criança imitar e um final que puxa o
+   refrão de novo, para o vídeo rodar em loop.
+2. A **ElevenLabs Music** canta a letra em português, com a duração exata de cada
+   parte (refrão, verso...), e devolve o tempo de cada palavra cantada.
+3. O vídeo troca de ilustração a cada verso e destaca em amarelo a palavra que está
+   sendo cantada (karaokê). As repetições do refrão reaproveitam as mesmas imagens.
 
 ---
 
@@ -24,7 +37,7 @@ O canal de exemplo é o **Mundo do Pipo**: a girafinha Pipo apresenta 5 séries
 | Gerar mascote, foto de perfil e banner | Robô (`channel-kit`) |
 | Aplicar banner, descrição, palavras-chave, público infantil e playlists | Robô (`setup-channel`) |
 | Enviar a foto de perfil | **Você, uma vez** (a API não permite) |
-| Escolher tema, escrever, revisar, ilustrar, narrar, editar e publicar cada Short | Robô, todo dia (GitHub Actions) |
+| Escolher tema, compor/escrever, revisar, ilustrar, cantar/narrar, editar e publicar cada Short | Robô, todo dia (GitHub Actions) |
 
 ---
 
@@ -60,10 +73,16 @@ O canal de exemplo é o **Mundo do Pipo**: a girafinha Pipo apresenta 5 séries
 
 | Chave | Para quê | Obrigatória? |
 |---|---|---|
-| `ANTHROPIC_API_KEY` (<https://console.anthropic.com>) | Roteiro e revisão de segurança | **Sim** |
+| `ANTHROPIC_API_KEY` (<https://console.anthropic.com>) | Roteiro, letras e revisão de segurança | **Sim** |
+| `ELEVENLABS_API_KEY` (<https://elevenlabs.io>) | **Músicas cantadas** (e voz premium opcional) | **Sim, para as séries cantadas** — sem ela o robô só faz vídeos narrados |
 | `OPENAI_API_KEY` (<https://platform.openai.com>) | Ilustrações de melhor qualidade e mascote consistente | Recomendada |
 | `POLLINATIONS_TOKEN` | Ilustrações gratuitas (usado quando não há chave da OpenAI) | Não |
-| `ELEVENLABS_API_KEY` + `ELEVENLABS_VOICE_ID` | Voz mais expressiva (`voice.provider: elevenlabs`) | Não — a voz padrão (Microsoft Edge) é gratuita |
+| `ELEVENLABS_VOICE_ID` | Voz da narração na ElevenLabs (`voice.provider: elevenlabs`) | Não — a voz padrão (Microsoft Edge) é gratuita |
+
+> **Plano da ElevenLabs:** o plano gratuito tem poucos créditos por mês e não permite
+> uso comercial. Para um canal publicando todo dia (e que pode ser monetizado), use um
+> plano pago. Como referência, uma música de 26 segundos custou cerca de 390 créditos
+> no teste deste projeto — confira os preços e termos atuais no site.
 
 ### 4. Rode no seu computador (uma vez)
 
@@ -74,8 +93,9 @@ Requisitos: Python 3.10+ e FFmpeg 6 ou mais novo (`sudo apt install ffmpeg` /
 pip install -r requirements.txt
 cp .env.example .env          # e preencha as chaves
 
-# Teste sem gastar nada (sem APIs): gera um Short de exemplo em output/
-python -m kidschannel make --offline
+# Teste sem gastar nada (sem chaves): gera Shorts de exemplo em output/
+python -m kidschannel make --offline --series curiosidades   # narrado (voz grátis do Edge, se houver internet)
+python -m kidschannel make --offline --series musica         # cantado: no offline só toca uma base instrumental
 
 # Autoriza o robô a publicar no seu canal (abre o navegador)
 python -m kidschannel auth --client-secrets client_secret.json
@@ -89,7 +109,8 @@ python -m kidschannel channel-kit
 # Aplica banner, descrição, palavras-chave, público infantil e cria as playlists
 python -m kidschannel setup-channel
 
-# Gera um Short de verdade sem publicar, para conferir a qualidade
+# Gera Shorts de verdade sem publicar, para conferir a qualidade
+python -m kidschannel make --series musica
 python -m kidschannel make --series curiosidades
 
 # Gera e publica
@@ -102,9 +123,9 @@ Depois, envie `output/channel_kit/avatar.png` como foto do canal no YouTube Stud
 ### 5. Deixe no piloto automático (GitHub Actions)
 
 1. No GitHub: **Settings → Secrets and variables → Actions → New repository secret** e
-   cadastre `ANTHROPIC_API_KEY`, `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`,
-   `YOUTUBE_REFRESH_TOKEN` e, se tiver, `OPENAI_API_KEY`, `POLLINATIONS_TOKEN`,
-   `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID`.
+   cadastre `ANTHROPIC_API_KEY`, `ELEVENLABS_API_KEY`, `YOUTUBE_CLIENT_ID`,
+   `YOUTUBE_CLIENT_SECRET`, `YOUTUBE_REFRESH_TOKEN` e, se tiver, `OPENAI_API_KEY`,
+   `POLLINATIONS_TOKEN`, `ELEVENLABS_VOICE_ID`.
 2. (Opcional) Na aba **Variables**, crie `SHORTS_PER_RUN` com quantos vídeos por execução.
 3. Leve este código para a branch principal (`main`) — o agendamento do GitHub só roda nela.
 4. Pronto: o workflow [`publicar-shorts.yml`](.github/workflows/publicar-shorts.yml) roda
@@ -119,8 +140,11 @@ Depois, envie `output/channel_kit/avatar.png` como foto do canal no YouTube Stud
 
 - **Canal e mascote** (`channel`): nome, descrição, palavras-chave, bordão e a descrição
   visual do personagem (em inglês, usada em todas as ilustrações).
-- **Séries** (`series`): proposta, exemplos de temas, hashtags e peso (frequência).
-  Crie quantas quiser.
+- **Séries** (`series`): proposta, exemplos de temas, hashtags, peso (frequência) e
+  formato — `format: song` (cantada) ou narrada. Crie quantas quiser. Hoje cerca de
+  metade dos vídeos sai cantada; ajuste os pesos para mudar isso.
+- **Músicas** (`song`): modelo da ElevenLabs, duração (20–40 s), estilos musicais
+  aplicados a todas as músicas e nuances por parte (refrão, verso...).
 - **Voz** (`voice`): vozes gratuitas em pt-BR, como `pt-BR-FranciscaNeural`,
   `pt-BR-AntonioNeural` e `pt-BR-ThalitaMultilingualNeural`; ajuste velocidade (`rate`)
   e tom (`pitch`).
@@ -164,13 +188,23 @@ python -m kidschannel upload output/<pasta> # publica depois de assistir
   uma consulta (historicamente ~1.600 unidades, ou seja, uns 6 envios por dia). Se
   precisar de mais, peça aumento no mesmo formulário da auditoria.
 
+## Dicas para viralizar (já aplicadas nos roteiros)
+
+- **Gancho no 1º segundo**: o refrão (ou uma pergunta surpreendente) começa imediatamente.
+- **Repetição**: refrão repetido, onomatopeias e gestos — crianças pedem para ver de novo.
+- **Loop**: o final puxa o começo, então o Short "recomeça" sem a criança perceber.
+- **Curto**: 20–40 s nas músicas e 25–45 s nos narrados.
+- **Personagem fixo**: o Pipo aparece sempre igual (use `assets/mascot.png` com a OpenAI).
+- **Constância**: 1–2 vídeos por dia, sempre no mesmo horário.
+
 ## Custos aproximados por Short
 
 | Item | Custo |
 |---|---|
-| Roteiro + revisão (Claude) | alguns centavos de dólar |
+| Roteiro/letra + revisão (Claude) | alguns centavos de dólar |
+| Música cantada (ElevenLabs Music, ~30 s) | créditos do plano da ElevenLabs (~390 créditos por 26 s no teste) |
 | 4–8 ilustrações (OpenAI, qualidade média) | algumas dezenas de centavos de dólar; Pollinations: grátis |
-| Voz (Edge) / música / edição | grátis |
+| Voz da narração (Edge) / música de fundo / edição | grátis |
 | GitHub Actions (~5 min por vídeo) | grátis em repositório público; 2.000 min/mês grátis em privado |
 
 Os preços mudam; confira nas páginas de cada serviço.
@@ -183,7 +217,8 @@ Os preços mudam; confira nas páginas de cada serviço.
 config.yaml                 # tudo que dá para personalizar
 kidschannel/
   __main__.py               # comandos: auth, channel-kit, setup-channel, make, run, upload
-  script_writer.py          # roteiro + revisão de segurança (Claude)
+  script_writer.py          # roteiro, letra das músicas + revisão de segurança (Claude)
+  song.py                   # música cantada (ElevenLabs Music) + sincronia da letra
   images.py                 # ilustrações (OpenAI / Pollinations / local para testes)
   tts.py                    # narração com tempo de cada palavra (Edge / ElevenLabs)
   music.py                  # música de fundo original
@@ -207,4 +242,7 @@ tests/                      # testes automatizados (python -m pytest)
 | `quotaExceeded` | Cota diária esgotada; renova à meia-noite do horário do Pacífico. |
 | `Todos os provedores de imagem falharam` | Confira `OPENAI_API_KEY` ou tente mais tarde (Pollinations tem limite de uso). |
 | `edge-tts falhou` | Instabilidade do serviço de voz; o workflow pode ser rodado de novo. |
+| `Séries de música puladas` | Falta `ELEVENLABS_API_KEY`; sem ela só saem vídeos narrados. |
+| `ElevenLabs Music falhou` / `quota_exceeded` | Créditos da ElevenLabs acabaram ou o plano não inclui música pela API. |
+| Vídeo de teste (`--offline`) sem voz | Normal sem internet: o modo offline não chama nenhum serviço. Os vídeos de verdade falam/cantam. |
 | Legenda com fonte diferente | Instale a fonte (`fonts-comic-neue`) ou troque `video.caption_font`. |

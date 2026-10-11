@@ -1,4 +1,4 @@
-"""Orquestra tudo: roteiro -> imagens -> narração -> música -> vídeo -> YouTube."""
+"""Orquestra tudo: roteiro/letra -> imagens -> voz ou música cantada -> vídeo -> YouTube."""
 
 from __future__ import annotations
 
@@ -13,14 +13,16 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from .captions import TimedWord
 from .config import OUTPUT_DIR, series_by_id
 from .images import ImageGenerator
 from .media import probe_duration
 from .music import background_music
-from .script_writer import Script, ScriptWriter, offline_script
+from .script_writer import NARRATION, SONG, Script, ScriptWriter, offline_script
+from .song import make_song, song_available
 from .state import ChannelState
 from .tts import audio_file, make_tts
-from .video import SceneMedia, plan_timeline, render_short
+from .video import plan_timeline, render, song_timeline
 
 log = logging.getLogger(__name__)
 
@@ -57,12 +59,23 @@ def next_slots(times: list[str], tz_name: str, count: int, now: datetime | None 
     return slots
 
 
+def available_series(cfg: dict[str, Any], offline: bool = False) -> list[dict[str, Any]]:
+    """Séries que dá para produzir agora (as de música precisam da chave da ElevenLabs)."""
+    if offline or song_available(cfg):
+        return cfg["series"]
+    usable = [s for s in cfg["series"] if s.get("format", NARRATION) != SONG]
+    if len(usable) < len(cfg["series"]):
+        log.warning("Séries de música puladas: configure ELEVENLABS_API_KEY para os vídeos cantados.")
+    return usable or cfg["series"]
+
+
 def make_short(cfg: dict[str, Any], state: ChannelState, series: dict[str, Any] | None = None,
-               topic: str | None = None, offline: bool = False, out_root: Path = OUTPUT_DIR) -> ShortResult:
-    series = series or state.pick_series(cfg["series"])
+               topic: str | None = None, offline: bool = False, out_root: Path = OUTPUT_DIR,
+               tts_provider: str | None = None) -> ShortResult:
+    series = series or state.pick_series(available_series(cfg, offline))
     seed = random.randrange(1, 2**31)
 
-    # 1) roteiro
+    # 1) roteiro ou letra
     if offline:
         script = offline_script(cfg, series, topic)
     else:
@@ -79,28 +92,53 @@ def make_short(cfg: dict[str, Any], state: ChannelState, series: dict[str, Any] 
         script.scenes, folder / "images", seed
     )
 
-    # 3) narração
-    tts = make_tts(cfg, "silent" if offline else None)
-    audio_dir = folder / "audio"
-    audio_dir.mkdir(exist_ok=True)
-    scenes: list[SceneMedia] = []
-    for i, (scene, image) in enumerate(zip(script.scenes, images)):
-        base = audio_dir / f"scene_{i:02d}"
-        words = tts.synthesize(scene.narration, base)
-        scenes.append(SceneMedia(image=image, audio=audio_file(base), words=words))
-
-    # 4) música do tamanho exato do vídeo
-    vcfg = cfg["video"]
-    timeline = plan_timeline(
-        [probe_duration(s.audio) for s in scenes],
-        float(vcfg.get("lead", 0.25)), float(vcfg.get("tail", 0.45)), float(vcfg.get("transition", 0.4)),
-    )
-    music = background_music(cfg, timeline.total + 1.0, folder, seed)
-
-    # 5) vídeo final
-    video = render_short(cfg, scenes, music, folder / "short.mp4", folder, series.get("label"), seed)
+    # 3) áudio + linha do tempo
+    if script.format == SONG:
+        video = _render_song(cfg, script, series, images, folder, seed, offline)
+    else:
+        provider = tts_provider or ("edge_or_silent" if offline else None)
+        video = _render_narration(cfg, script, series, images, folder, seed, provider)
     log.info("Short pronto: %s", video)
     return ShortResult(folder=folder, video=video, script=script, series=series)
+
+
+def _render_narration(cfg, script: Script, series, images, folder: Path, seed: int, tts_provider) -> Path:
+    tts = make_tts(cfg, tts_provider)
+    audio_dir = folder / "audio"
+    audio_dir.mkdir(exist_ok=True)
+    audios, scene_words = [], []
+    for i, scene in enumerate(script.scenes):
+        base = audio_dir / f"scene_{i:02d}"
+        scene_words.append(tts.synthesize(scene.narration, base))
+        audios.append(audio_file(base))
+
+    vcfg = cfg["video"]
+    lead = float(vcfg.get("lead", 0.25))
+    timeline = plan_timeline(
+        [probe_duration(a) for a in audios], lead, float(vcfg.get("tail", 0.45)), float(vcfg.get("transition", 0.4))
+    )
+    words = [
+        TimedWord(w.text, start + lead + w.start, start + lead + w.end)
+        for start, ws in zip(timeline.starts, scene_words)
+        for w in ws
+    ]
+    tracks = [(a, start + lead) for a, start in zip(audios, timeline.starts)]
+    music = background_music(cfg, timeline.total + 1.0, folder, seed)
+    return render(cfg, images, timeline, tracks, words, folder / "short.mp4", folder, seed,
+                  music=music, label=series.get("label"))
+
+
+def _render_song(cfg, script: Script, series, images, folder: Path, seed: int, offline: bool) -> Path:
+    song = make_song(cfg, script, folder, seed, offline=offline)
+    timeline, kept = song_timeline(song.line_starts, song.duration, float(cfg["video"].get("transition", 0.4)))
+    words = [
+        TimedWord(w.text, w.start, w.end, line_break=(k == len(line) - 1))
+        for line in song.lines
+        for k, w in enumerate(line)
+    ]
+    return render(cfg, [images[i] for i in kept], timeline, [(song.path, 0.0)], words,
+                  folder / "short.mp4", folder, seed, music=None, label=series.get("label"),
+                  caption_words=int(cfg.get("song", {}).get("caption_words", 4)))
 
 
 def load_result(cfg: dict[str, Any], folder: Path) -> ShortResult:

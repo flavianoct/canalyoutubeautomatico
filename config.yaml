@@ -46,11 +46,46 @@ style:
     nothing scary, no weapons, no blood
 
 # Séries do canal. O robô alterna entre elas (peso = frequência relativa).
+#   format: song      -> música original CANTADA (precisa de ELEVENLABS_API_KEY)
+#   format: narration -> narração falada com música de fundo (padrão)
 series:
+  - id: musica
+    name: "Musiquinhas do Pipo"
+    label: "MUSIQUINHA DO PIPO"
+    format: song
+    weight: 4
+    hashtags: ["#musicainfantil", "#musiquinha", "#infantil"]
+    brief: >-
+      Música original, alegre e grudenta sobre algo do mundo da criança: sons
+      dos animais, cores, números, partes do corpo, frutas, meios de transporte,
+      emoções ou hábitos (escovar os dentes, tomar banho, guardar os brinquedos).
+      Refrão com onomatopeia fácil de cantar junto e algo para aprender.
+    examples:
+      - os sons dos animais da fazenda
+      - a música das cores do arco-íris
+      - contando os patinhos até cinco
+      - hora de escovar os dentes
+
+  - id: danca
+    name: "Dança do Pipo"
+    label: "DANÇA DO PIPO"
+    format: song
+    weight: 2
+    hashtags: ["#dancainfantil", "#musicainfantil", "#infantil"]
+    brief: >-
+      Música de movimento para dançar junto: cada verso pede um gesto simples e
+      seguro (bater palmas, pular no lugar, rodar, mexer a cabeça, imitar um
+      animal), com o refrão repetindo os gestos. A criança se mexe enquanto aprende
+      partes do corpo, direções (cima, baixo) ou ritmos (rápido, devagar).
+    examples:
+      - a dança dos bichos (pular como sapo, voar como passarinho)
+      - cabeça, ombro e joelho em ritmo de forró
+      - rápido e devagar
+
   - id: curiosidades
     name: "Curiosidades Animais"
     label: "CURIOSIDADES ANIMAIS"
-    weight: 3
+    weight: 2
     hashtags: ["#curiosidades", "#animais", "#infantil"]
     brief: >-
       Um fato verdadeiro e surpreendente sobre um animal, explicado de forma
@@ -80,7 +115,7 @@ series:
   - id: historinha
     name: "Historinhas do Pipo"
     label: "HISTORINHA DO PIPO"
-    weight: 2
+    weight: 1
     hashtags: ["#historinha", "#historiainfantil", "#infantil"]
     brief: >-
       Uma mini história com começo, meio e fim, protagonizada pelo Pipo e um
@@ -95,7 +130,7 @@ series:
   - id: aprender
     name: "Aprendendo com o Pipo"
     label: "APRENDENDO COM O PIPO"
-    weight: 2
+    weight: 1
     hashtags: ["#aprenderbrincando", "#educacaoinfantil", "#infantil"]
     brief: >-
       Ensinar um conceito simples: cores, formas, números até 10, letras,
@@ -127,8 +162,40 @@ llm:
   effort: "medium"          # low | medium | high | xhigh | max
   max_attempts: 3           # tentativas até o roteiro passar na revisão de segurança
   refusal_fallbacks: true   # fallback automático do lado do servidor se o modelo recusar
-  min_words: 60
-  max_words: 140
+  min_words: 50             # narração curta e rápida = mais retenção nos Shorts
+  max_words: 110
+
+# ---------------- Músicas cantadas (ElevenLabs Music) ----------------
+song:
+  provider: "elevenlabs"
+  model_id: "music_v2_5"
+  min_seconds: 20
+  max_seconds: 40
+  caption_words: 4
+  # Estilos aplicados a toda música (em inglês). O roteirista ainda escolhe o
+  # ritmo de cada episódio (pop, forró, marchinha...).
+  styles:
+    - "original children's sing-along song"
+    - "cheerful bright vocals singing clearly in Brazilian Portuguese"
+    - "catchy repetitive chorus"
+    - "playful and joyful"
+    - "hand claps"
+    - "crisp modern production, great production quality"
+  negative_styles:
+    - "explicit lyrics"
+    - "dark or sad mood"
+    - "aggressive"
+    - "screaming"
+    - "heavy distortion"
+  # Nuances por tipo de seção (pelo nome da seção).
+  section_styles:
+    chorus: ["big catchy chorus", "kids choir backing vocals", "full energy"]
+    verse: ["lighter playful verse", "bouncy rhythm"]
+    bridge: ["build up energy"]
+    outro: ["short fun ending that leads back to the chorus"]
+  # Se a API não devolver o tempo das palavras, transcreve a música para sincronizar.
+  transcribe_fallback: true
+  transcribe_model: "scribe_v1"
 
 # ---------------- Imagens ----------------
 images:

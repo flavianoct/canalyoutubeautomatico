@@ -63,7 +63,7 @@ def test_words_from_elevenlabs_characters():
 
 # ---------------------------------------------------------------- roteiro
 def test_local_checks(cfg):
-    series = cfg["series"][0]
+    series = _narrated(cfg)
     script = offline_script(cfg, series)
     assert local_checks(script, 20, 200) == []
     script.scenes[0].narration = "Ele pegou uma faca."
@@ -87,13 +87,17 @@ def _raw_script(narration_words=12):
     return {"topic": "gatos", "title": "Gatos", "description": "Sobre gatos.", "tags": ["gato"], "scenes": [scene] * 6}
 
 
+def _narrated(cfg):
+    return next(s for s in cfg["series"] if s.get("format", "narration") == "narration")
+
+
 def test_writer_retries_with_review_feedback(cfg):
     llm = FakeLLM([
         _raw_script(), {"approved": False, "issues": ["Fato incorreto na cena 2."]},
         _raw_script(), {"approved": True, "issues": []},
     ])
-    script = ScriptWriter(cfg, llm=llm).write(cfg["series"][0], recent_topics=["polvo"])
-    assert script.topic == "gatos" and script.series == cfg["series"][0]["id"]
+    script = ScriptWriter(cfg, llm=llm).write(_narrated(cfg), recent_topics=["polvo"])
+    assert script.topic == "gatos" and script.series == _narrated(cfg)["id"]
     assert "Fato incorreto na cena 2." in llm.prompts[2]
     assert "polvo" in llm.prompts[0]
 
@@ -103,7 +107,7 @@ def test_writer_gives_up_after_max_attempts(cfg):
     too_short = _raw_script(narration_words=1)
     llm = FakeLLM([too_short, too_short])
     with pytest.raises(LLMError):
-        ScriptWriter(cfg, llm=llm).write(cfg["series"][0], recent_topics=[])
+        ScriptWriter(cfg, llm=llm).write(_narrated(cfg), recent_topics=[])
 
 
 # ---------------------------------------------------------------- estado
@@ -111,8 +115,8 @@ def test_state_avoids_repeating_last_series(tmp_path, cfg):
     state = ChannelState(tmp_path / "state.json")
     state.add_video({"series": "curiosidades", "topic": "polvo"})
     rng = random.Random(0)
-    picks = {state.pick_series(cfg["series"], rng)["id"] for _ in range(50)}
-    assert "curiosidades" not in picks
+    picks = {state.pick_series(cfg["series"], rng)["id"] for _ in range(80)}
+    assert "curiosidades" not in picks and "musica" in picks
     state.save()
     again = ChannelState(tmp_path / "state.json")
     assert again.recent_topics("curiosidades") == ["polvo"]

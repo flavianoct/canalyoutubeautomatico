@@ -93,6 +93,7 @@ class EdgeTTS:
             except Exception as exc:  # rede instável: tenta de novo
                 last = exc
                 log.warning("edge-tts falhou (tentativa %d): %s", attempt + 1, exc)
+        out_path.with_suffix(".mp3").unlink(missing_ok=True)  # não deixa áudio pela metade
         raise TTSError(f"edge-tts falhou: {last}")
 
 
@@ -171,10 +172,29 @@ class SilentTTS:
         return even_word_timings(text, duration, start=0.15)
 
 
+class EdgeOrSilentTTS:
+    """Modo offline: tenta a voz gratuita do Edge; sem internet, segue com áudio mudo."""
+
+    def __init__(self, cfg: dict[str, Any]):
+        self.edge: EdgeTTS | None = EdgeTTS(cfg)
+        self.silent = SilentTTS(cfg)
+
+    def synthesize(self, text: str, out_path: Path) -> list[Word]:
+        if self.edge:
+            try:
+                return self.edge.synthesize(text, out_path)
+            except TTSError as exc:
+                log.warning("Sem acesso à voz do Edge (%s); o vídeo de teste ficará sem narração.", exc)
+                self.edge = None
+        return self.silent.synthesize(text, out_path)
+
+
 def make_tts(cfg: dict[str, Any], provider: str | None = None):
     provider = provider or cfg["voice"].get("provider", "edge")
     if provider == "edge":
         return EdgeTTS(cfg)
+    if provider == "edge_or_silent":
+        return EdgeOrSilentTTS(cfg)
     if provider == "elevenlabs":
         return ElevenLabsTTS(cfg)
     if provider == "silent":

@@ -129,7 +129,7 @@ def main(argv: list[str] | None = None) -> int:
         p = sub.add_parser(name, help=helptext)
         p.add_argument("--series", help="força uma série (id do config)")
         p.add_argument("--topic", help="força um tema")
-        p.add_argument("--offline", action="store_true", help="sem APIs: roteiro fixo, imagens de teste e áudio mudo")
+        p.add_argument("--offline", action="store_true", help="sem chaves: roteiro fixo, imagens de teste; voz grátis do Edge se houver internet")
         if name == "run":
             p.add_argument("--count", type=int, help="quantos Shorts produzir (padrão: 1, ou um por horário agendado)")
             p.add_argument("--dry-run", action="store_true", help="gera mas não envia ao YouTube")
