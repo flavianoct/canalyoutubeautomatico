@@ -1,0 +1,201 @@
+# ============================================================
+#  Configuração do canal infantil automático
+#  Edite à vontade: tudo o que o robô faz sai daqui.
+# ============================================================
+
+channel:
+  name: "Mundo do Pipo"
+  tagline: "Aprender brincando!"     # frase curta que aparece no banner
+  language: "pt-BR"
+  country: "BR"
+  audience: "crianças de 3 a 8 anos"
+  description: >-
+    Bem-vindo ao Mundo do Pipo! Aqui a girafinha Pipo mostra curiosidades sobre
+    animais, conta historinhas com lições bonitas, faz adivinhas e ensina cores,
+    números e palavras de um jeito divertido. Vídeos curtinhos, educativos e
+    seguros para crianças de 3 a 8 anos assistirem com a família.
+  keywords:
+    - desenho infantil
+    - vídeo educativo
+    - curiosidades para crianças
+    - historinha infantil
+    - adivinhas
+    - aprender brincando
+    - Mundo do Pipo
+  # Texto fixo no fim de toda descrição de vídeo.
+  footer: "Vídeos novos com o Pipo toda semana. Assista com a família!"
+  mascot:
+    name: "Pipo"
+    description_pt: "um filhote de girafa curioso, gentil e muito alegre"
+    # Descrição visual em inglês (os geradores de imagem entendem melhor).
+    # Ela é repetida em toda imagem para manter o personagem consistente.
+    visual: >-
+      Pipo, a cute small baby giraffe with a round head, big shiny brown eyes,
+      soft yellow fur with rounded orange spots, two small fuzzy horns,
+      wearing a light blue scarf
+    catchphrase: "Até a próxima aventura, amiguinhos!"
+
+style:
+  image: >-
+    bright and colorful 3D animated cartoon illustration for young children,
+    soft rounded shapes, friendly happy expressions, warm soft lighting,
+    simple clean background, high detail, vertical 9:16 composition
+  # Restrições adicionadas a todo prompt de imagem.
+  avoid: >-
+    no text, no letters, no numbers written, no watermark, no logos,
+    nothing scary, no weapons, no blood
+
+# Séries do canal. O robô alterna entre elas (peso = frequência relativa).
+series:
+  - id: curiosidades
+    name: "Curiosidades Animais"
+    label: "CURIOSIDADES ANIMAIS"
+    weight: 3
+    hashtags: ["#curiosidades", "#animais", "#infantil"]
+    brief: >-
+      Um fato verdadeiro e surpreendente sobre um animal, explicado de forma
+      simples. Comece com uma pergunta que desperte curiosidade, mostre o fato,
+      explique o porquê em palavras fáceis e termine com algo para a criança
+      imitar ou observar (ex.: "tente pular como o canguru!"), desde que seja seguro.
+    examples:
+      - por que a girafa tem o pescoço comprido
+      - o polvo tem três corações
+      - como o camaleão muda de cor
+      - por que o pinguim não voa
+
+  - id: adivinha
+    name: "O que é, o que é?"
+    label: "O QUE É, O QUE É?"
+    weight: 2
+    hashtags: ["#adivinha", "#oqueeoquee", "#infantil"]
+    brief: >-
+      Uma adivinha clássica ou nova, adequada à idade. Apresente 2 ou 3 pistas,
+      faça uma pausa com contagem "três, dois, um" e revele a resposta com uma
+      explicação curta e alegre. A cena da resposta deve mostrar a resposta.
+    examples:
+      - tem dentes mas não morde (o pente)
+      - cai em pé e corre deitado (a chuva)
+      - quanto mais se tira, maior fica (o buraco)
+
+  - id: historinha
+    name: "Historinhas do Pipo"
+    label: "HISTORINHA DO PIPO"
+    weight: 2
+    hashtags: ["#historinha", "#historiainfantil", "#infantil"]
+    brief: >-
+      Uma mini história com começo, meio e fim, protagonizada pelo Pipo e um
+      amigo animal, com uma lição positiva (amizade, partilhar, paciência,
+      pedir desculpas, coragem, respeito às diferenças). Sem vilões assustadores.
+      Feche dizendo a lição em uma frase simples.
+    examples:
+      - Pipo aprende a dividir o lanche
+      - Pipo ajuda um amigo que tem medo do escuro
+      - Pipo e a tartaruga apostam corrida
+
+  - id: aprender
+    name: "Aprendendo com o Pipo"
+    label: "APRENDENDO COM O PIPO"
+    weight: 2
+    hashtags: ["#aprenderbrincando", "#educacaoinfantil", "#infantil"]
+    brief: >-
+      Ensinar um conceito simples: cores, formas, números até 10, letras,
+      opostos, sentimentos ou palavras básicas em inglês. Use repetição e
+      convide a criança a responder em voz alta.
+    examples:
+      - as cores do arco-íris
+      - contando até cinco com frutas
+      - grande e pequeno
+      - palavras em inglês dos animais da fazenda
+
+  - id: porque
+    name: "Por que será?"
+    label: "POR QUE SERÁ?"
+    weight: 1
+    hashtags: ["#porque", "#ciencia", "#infantil"]
+    brief: >-
+      Uma pergunta que as crianças fazem sobre o mundo (natureza, corpo,
+      céu, clima) respondida de forma correta e muito simples, com uma
+      comparação do dia a dia.
+    examples:
+      - por que o céu é azul
+      - por que a gente sonha
+      - de onde vem o arco-íris
+
+# ---------------- Geração de roteiro (Claude) ----------------
+llm:
+  model: "claude-opus-5-5"
+  effort: "medium"          # low | medium | high | xhigh | max
+  max_attempts: 3           # tentativas até o roteiro passar na revisão de segurança
+  refusal_fallbacks: true   # fallback automático do lado do servidor se o modelo recusar
+  min_words: 60
+  max_words: 140
+
+# ---------------- Imagens ----------------
+images:
+  # Ordem de tentativa. Provedores sem chave configurada são pulados.
+  #   openai       -> precisa de OPENAI_API_KEY (melhor qualidade)
+  #   pollinations -> gratuito, sem chave (POLLINATIONS_TOKEN opcional)
+  #   local        -> desenho simples gerado no computador (só para testes)
+  providers: ["openai", "pollinations"]
+  max_workers: 2
+  openai:
+    model: "gpt-image-1"
+    size: "1024x1536"
+    quality: "medium"
+    # Se assets/mascot.png existir, ele é usado como referência para manter o
+    # personagem igual em todas as cenas (gerado por `channel-kit`).
+    use_mascot_reference: true
+  pollinations:
+    base_url: "https://image.pollinations.ai/prompt/"
+    model: "flux"
+
+# ---------------- Narração ----------------
+voice:
+  provider: "edge"          # edge (gratuito) | elevenlabs (pago, mais expressivo)
+  edge:
+    voice: "pt-BR-FranciscaNeural"
+    rate: "-8%"
+    pitch: "+4Hz"
+  elevenlabs:
+    voice_id: ""            # copie o ID da voz no site da ElevenLabs
+    model_id: "eleven_multilingual_v2"
+    stability: 0.45
+    similarity_boost: 0.8
+    style: 0.35
+
+# ---------------- Música de fundo ----------------
+music:
+  enabled: true
+  volume: 0.14
+  # Coloque arquivos .mp3/.wav livres de direitos aqui (ex.: Biblioteca de Áudio
+  # do YouTube). Se a pasta estiver vazia, uma melodia original é composta
+  # automaticamente para cada vídeo (sem problemas de direitos autorais).
+  folder: "assets/music"
+
+# ---------------- Vídeo ----------------
+video:
+  width: 1080
+  height: 1920
+  fps: 30
+  transition: 0.4           # segundos de transição entre cenas
+  lead: 0.25                # respiro antes da fala de cada cena
+  tail: 0.45                # respiro depois da fala de cada cena
+  caption_font: "Comic Neue"
+  caption_font_fallback: "DejaVu Sans"
+  caption_size: 88
+  caption_words: 3          # palavras por legenda
+  show_series_label: true
+  crf: 20
+
+# ---------------- Publicação no YouTube ----------------
+publishing:
+  privacy_status: "public"  # public | unlisted | private (private = revisar antes)
+  category_id: "27"         # 27 = Educação
+  made_for_kids: true       # obrigatório por lei (COPPA) para conteúdo infantil
+  # Marque true se o estilo for realista. Desenho animado não exige o selo.
+  contains_synthetic_media: false
+  # Horários de publicação agendada (hora local). Vazio = publica na hora.
+  # Ex.: ["11:00", "17:30"] -> cada execução gera um vídeo por horário.
+  schedule_times: []
+  timezone: "America/Sao_Paulo"
+  playlists_per_series: true

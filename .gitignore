@@ -1,0 +1,14 @@
+# vídeos e arquivos gerados
+output/
+
+# credenciais — nunca commitar
+.env
+token.json
+client_secret*.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/

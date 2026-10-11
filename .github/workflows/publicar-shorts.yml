@@ -1,0 +1,96 @@
+name: Publicar Shorts
+
+on:
+  schedule:
+    # Horário em UTC. 13:07 UTC = 10:07 em Brasília.
+    # Para publicar mais vezes por dia, adicione outras linhas "- cron:".
+    - cron: "7 13 * * *"
+  workflow_dispatch:
+    inputs:
+      count:
+        description: "Quantos Shorts gerar (vazio = padrão)"
+        default: ""
+      series:
+        description: "Série (opcional): curiosidades, adivinha, historinha, aprender, porque"
+        default: ""
+      topic:
+        description: "Tema (opcional)"
+        default: ""
+      dry_run:
+        description: "Só gerar o vídeo, sem publicar"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publicar-shorts
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar FFmpeg e fontes
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg fonts-comic-neue fonts-dejavu-core
+
+      - name: Instalar dependências
+        run: pip install -r requirements.txt
+
+      - name: Gerar e publicar
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          POLLINATIONS_TOKEN: ${{ secrets.POLLINATIONS_TOKEN }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          # Entradas passam por variáveis de ambiente (evita injeção de comandos).
+          COUNT: ${{ inputs.count || vars.SHORTS_PER_RUN }}
+          SERIES: ${{ inputs.series }}
+          TOPIC: ${{ inputs.topic }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          args=(run)
+          if [ -n "$COUNT" ]; then args+=(--count "$COUNT"); fi
+          if [ -n "$SERIES" ]; then args+=(--series "$SERIES"); fi
+          if [ -n "$TOPIC" ]; then args+=(--topic "$TOPIC"); fi
+          if [ "$DRY_RUN" = "true" ]; then args+=(--dry-run); fi
+          python -m kidschannel "${args[@]}"
+
+      - name: Guardar vídeos gerados (14 dias)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shorts-${{ github.run_id }}
+          path: |
+            output/**/short.mp4
+            output/**/script.json
+            output/**/upload.json
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Salvar histórico do canal no repositório
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ ! -f data/state.json ]; then exit 0; fi
+          git add data/state.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Atualiza histórico do canal [skip ci]"
+          git pull --rebase origin "$GITHUB_REF_NAME"
+          git push origin "HEAD:$GITHUB_REF_NAME"
